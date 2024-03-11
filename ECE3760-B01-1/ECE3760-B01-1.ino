@@ -166,8 +166,8 @@ int numPeers = 0;
 
 // === MAIN PROGRAM ===============================================================================
 
-#define DEBOUNCE_DELAY 100
-#define LED3_PIN 5
+#define DEBOUNCE_DELAY 10
+#define LED3_PIN 21
 
 int led1State = 0;
 int led2State = 0;
@@ -183,6 +183,10 @@ int button3Last = 0;
 long button1LastDebounce = 0;
 long button2LastDebounce = 0;
 long button3LastDebounce = 0;
+
+bool inDebouncePeriod1 = false;
+bool inDebouncePeriod2 = false;
+bool inDebouncePeriod3 = false;
 
 void setup() {
 
@@ -211,9 +215,9 @@ void loop() {
   int button3Current = digitalRead(JOYSTICK_SW_PIN);
 
   // Debounce
-  int newButton1State = debounce(button1State, button1Current, button1Last, &button1LastDebounce);
-  int newButton2State = debounce(button2State, button2Current, button2Last, &button2LastDebounce);
-  int newButton3State = debounce(button3State, button3Current, button3Last, &button3LastDebounce);
+  int newButton1State = debounce(button1State, button1Current, button1Last, &button1LastDebounce, &inDebouncePeriod1);
+  int newButton2State = debounce(button2State, button2Current, button2Last, &button2LastDebounce, &inDebouncePeriod2);
+  int newButton3State = debounce(button3State, button3Current, button3Last, &button3LastDebounce, &inDebouncePeriod3);
 
   // Edge detection
   led1State = edgeDetection(button1State, newButton1State, led1State);
@@ -228,6 +232,12 @@ void loop() {
   setPwmRGBA(leftLED,  led1State == 1 ? BLUE : WHITE, ledBrightness);
   setPwmRGBA(rightLED, led2State == 1 ? BLUE : WHITE, ledBrightness);
 
+  if ( inDebouncePeriod1 | inDebouncePeriod2 | inDebouncePeriod3 ) {
+    digitalWrite(LED3_PIN, HIGH);
+  } else {
+    digitalWrite(LED3_PIN, LOW);
+  }
+
   // Update last states
   button1Last = button1Current;
   button2Last = button2Current;
@@ -238,12 +248,12 @@ void loop() {
   button3State = newButton3State;
 }
 
-int debounce(int state, int current, int last, long* lastDebounce) {
+int debounce(int state, int current, int last, long* lastDebounce, bool* inDebounce) {
 
   // Check for 'noise'
   if (current != last) {
     // Turn on LED 3
-    digitalWrite(LED3_PIN, HIGH);
+    *inDebounce = true;
 
     // Reset debounce timer
     *lastDebounce = millis();
@@ -252,7 +262,7 @@ int debounce(int state, int current, int last, long* lastDebounce) {
   // Debounce timeout
   if ((millis() - *lastDebounce) > DEBOUNCE_DELAY) {
     // Turn off LED 3
-    digitalWrite(LED3_PIN, LOW);
+    *inDebounce = false;
 
     // Change button state
     if (current != state) {
